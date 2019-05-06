@@ -1,4 +1,3 @@
-install.packages("ggrepel")
 library(dplyr)
 library(tidyverse)
 library(kableExtra)
@@ -16,11 +15,23 @@ a = Players %>% count(birth_state) %>% arrange(desc(n)) %>% mutate(percent_playe
 # A plot to visualize the previous line of code 
 a %>% slice(2:11) %>% ggplot() + 
   geom_bar(mapping = aes(x = reorder(birth_state, -percent_players), y = percent_players, fill = birth_state), stat = "identity") + 
-  ggtitle("Total player representation by state") + xlab("State")
+  ggtitle("Total player representation by birth state") + xlab("State")
 
 # Here we calculate the mean height and weight per birth_state. You can also rearrange it to see.
-Players %>% group_by(birth_state) %>% summarize(mean_height_per_state = mean(height, na.rm = TRUE),
-                                                mean_weight_per_state = mean(weight, na.rm = TRUE))
+d = Players %>% group_by(birth_state) %>% summarize(mean_height_per_state = mean(height, na.rm = TRUE),
+                                                mean_weight_per_state = mean(weight, na.rm = TRUE)) %>%
+                                                arrange(desc(mean_weight_per_state))
+e = Players %>% select(height, weight)
+
+e %>% ggplot(aes(height)) + 
+  geom_density(fill = "lightgreen") + geom_vline(aes(xintercept = mean(height, na.rm = TRUE)), linetype = "dashed") +
+  ggtitle("End-to-end density distribution of player height")
+
+# Here we are 
+e %>% ggplot(aes(weight)) + 
+  geom_density(fill = "lightblue") + geom_vline(aes(xintercept = mean(weight, na.rm = TRUE)), linetype = "dashed") +
+  ggtitle("End-to-end density distribution of player weight")
+
 
 # Made variables by selecting certain columns
 b = Player_Data %>% select(year_start, year_end, position, name)
