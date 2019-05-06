@@ -39,3 +39,12 @@ c = Seasons_Stats %>% select(Player, Age, Tm)
 
 # This is where we join different tables. 
 b %>% left_join(Players, by = c("name" = "Player")) %>% left_join(c, by = c("name" = "Player"))
+
+## New variable of players by college
+f = Player_Data %>% count(college) %>% arrange(desc(n)) %>% mutate(percent_players = (n/sum(n)*100))                    
+
+# Visualize Total Player representation by University
+f %>% slice(2:11) %>% ggplot() + 
+  geom_bar(mapping = aes(x = reorder(college, -percent_players), y = percent_players, fill = college), stat = "identity") + 
+  ggtitle("Total player representation by University") + xlab("College") 
+
