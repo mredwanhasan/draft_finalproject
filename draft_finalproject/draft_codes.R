@@ -21,7 +21,10 @@ a %>% slice(2:11) %>% ggplot() +
 d = Players %>% group_by(birth_state) %>% summarize(mean_height_per_state = mean(height, na.rm = TRUE),
                                                 mean_weight_per_state = mean(weight, na.rm = TRUE)) %>%
                                                 arrange(desc(mean_weight_per_state))
-e = Players %>% select(height, weight)
+# Made variables by selecting certain columns
+b = Player_Data %>% select(year_start, year_end, position, name)
+c = Seasons_Stats %>% select(Year, Player, Age, Tm)
+e = Players %>% select(height, weight, Player)
 
 e %>% ggplot(aes(height)) + 
   geom_density(fill = "lightgreen") + geom_vline(aes(xintercept = mean(height, na.rm = TRUE)), linetype = "dashed") +
@@ -33,12 +36,12 @@ e %>% ggplot(aes(weight)) +
   ggtitle("End-to-end density distribution of player weight")
 
 
-# Made variables by selecting certain columns
-b = Player_Data %>% select(year_start, year_end, position, name)
-c = Seasons_Stats %>% select(Player, Age, Tm)
 
 # This is where we join different tables. 
 b %>% left_join(Players, by = c("name" = "Player")) %>% left_join(c, by = c("name" = "Player"))
+b %>% left_join(Players, by = c("name" = "Player")) %>% left_join(c, by = c("name" = "Player"))
+y=e %>% left_join(c, by = "Player")
+y
 
 ## New variable of players by college
 f = Player_Data %>% count(college) %>% arrange(desc(n)) %>% mutate(percent_players = (n/sum(n)*100))                    
@@ -48,3 +51,17 @@ f %>% slice(2:11) %>% ggplot() +
   geom_bar(mapping = aes(x = reorder(college, -percent_players), y = percent_players, fill = college), stat = "identity") + 
   ggtitle("Total player representation by University") + xlab("College") 
 
+library(ggpubr)
+#ggscatter(y, x = "Year", y = "weight", 
+          #add = "reg.line", conf.int = TRUE, 
+          #cor.coef = TRUE, cor.method = "pearson",
+          #xlab = "Year", ylab = "Weight")
+
+#ggscatter(y, x = "Year", y = "height", 
+          #add = "reg.line", conf.int = TRUE, 
+          #cor.coef = TRUE, cor.method = "pearson",
+          #xlab = "Year", ylab = "Height")
+
+ggplot(y, aes(Year)) + 
+  geom_line(aes(y = height, colour = "Height")) + 
+  geom_line(aes(y = weight, colour = "Weight"))
