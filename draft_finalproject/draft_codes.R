@@ -95,8 +95,17 @@ Players %>% group_by(born, Player) %>%
   ggtitle("Number of players per generations over the years") + ylab("Count") +
   scale_x_continuous(breaks = seq(1910, 2018, 20)) 
 
-### Trying out the number of seasons played ###
+### Number of seasons played and how many players played in eahc of them ###
 
 Player_Data %>% select(name, year_start, year_end, position) %>% 
-  mutate(seasons_played = year_end - year_start)
+  mutate(seasons_played = year_end - year_start) %>% 
+  ggplot(aes(seasons_played)) +
+  geom_bar(aes(fill = ..count..)) + scale_x_continuous(breaks = seq(0, 20, 1)) +
+  ggtitle("Number of players and how many seaons they play") + ylab("Number of players")
+
+### The most popular/common positions in NBA ### Need to reorder it !!!
+Player_Data %>% select(name, year_start, year_end, position) %>% filter(!is.na(position)) %>%
+  mutate(seasons_played = year_end - year_start) %>% arrange(seasons_played) %>% 
+  ggplot(aes(position)) + geom_bar(aes(fill = position)) +
+  ggtitle("Number of players per position") + ylab("Number of players")
 
