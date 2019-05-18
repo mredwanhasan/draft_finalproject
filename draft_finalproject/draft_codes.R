@@ -8,6 +8,9 @@ library(here)
 library(maps)
 library(dygraphs)
 library(PerformanceAnalytics)
+library(corrplot)
+library(Hmisc)
+library(rpart)
 
 column_types <- rep("guess", 51)
 column_types[c(8,12,14:21,26:29,33:35,43,44,47:49)] <- "numeric"
@@ -42,6 +45,7 @@ Seasons_Stats$Pos[Seasons_Stats$Pos == "SF-SG"] <- "SF"
 Seasons_Stats$Pos[Seasons_Stats$Pos == "SG-PF"] <- "SG"
 Seasons_Stats$Pos[Seasons_Stats$Pos == "SG-PG"] <- "SG"
 Seasons_Stats$Pos[Seasons_Stats$Pos == "SG-SF"] <- "SG"
+
 
 
 # Here I tried to mutate a new column by calculating percentage of players per state. This is arrangd in descending order #
@@ -150,7 +154,7 @@ Seasons_Stats %>% group_by(Year) %>% summarize(mean_2point = mean(`2P`, na.rm = 
   scale_x_continuous(breaks = seq(1950, 2018, 10)) +
   labs(x = "NBA year", y = "Points scored") + ggtitle("Change in 2 point and 3 point score change over the years")
 
-### Height distribution around the world ###
+### Weight distribution around the world ###
 Players %>% group_by(birth_state) %>% summarize(mean_weight_world = mean(weight, na.rm = TRUE)) %>% 
   ggplot(aes(map_id=birth_state)) +
   geom_map(mapping=aes(fill=mean_weight_world), map=map_data("world")) + 
@@ -234,11 +238,28 @@ ggplot(player_winshare, aes(WS, Player)) +
   geom_segment(aes(x = 0, y = Player, xend = WS, yend = Player), color = "thistle") +
   geom_point() + ggtitle("Highest win share by players")
 
-
-corr_data <- Seasons_Stats[WS, c(10,11,16:21)]
+# 24,10,11,16:21,28,29,35,38,42,50,51 --> all the variables we might be interested in.
 
 corr_data <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(24,10,11,16:21,28,29,35,38,42,50,51))
-corr_data <- Seasons_Stats[, c(10,11,16:21,24)]
+# corr_data <- Seasons_Stats[, c(24,10,11,16:21,28,29,35,38,42,50,51 )]
 
-chart.Correlation(corr_data, histogram=TRUE, pch=19)
+corr_data %>% as.matrix() %>% rcorr()
+
+
+
+trial_model <- lm(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS, data = corr_data)
+summary(trial_model)
+step(trial_model)
+confint(trial_model)
+
+
+
+trial_model_1 <- rpart(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS,
+             method="anova", data=corr_data)
+summary(trial_model_1)
+plotcp(trial_model_1)
+
+plot(trial_model_1, uniform=TRUE, 
+     main="Regression Tree for Win Share ")
+text(trial_model_1, use.n=TRUE, all=TRUE, cex=.8)
 
