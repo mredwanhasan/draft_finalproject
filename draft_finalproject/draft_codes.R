@@ -9,7 +9,7 @@ library(maps)
 library(dygraphs)
 library(PerformanceAnalytics)
 library(corrplot)
-library(Hmisc)
+#library(Hmisc)
 library(rpart)
 
 column_types <- rep("guess", 51)
@@ -108,11 +108,11 @@ ggplot() +
 
 height_ts <- combined_3 %>% group_by(Year) %>% summarize(mean_height_playingyear = mean(height, na.rm = TRUE))
 height_ts <- ts(height_ts, start = 1950, frequency = 1)
-dygraph(height_ts) %>% dyRangeSelector() %>% dyAxis("y", label = "Average height", valueRange = c(191, 201))
+dygraph(height_ts) %>% dyRangeSelector() %>% dyAxis("y", label = "Average height in CM", valueRange = c(191, 201))
 
 weight_ts <- combined_3 %>% group_by(Year) %>% summarize(mean_weight_playingyear = mean(weight, na.rm = TRUE))
 weight_ts <- ts(weight_ts, start = 1950, frequency = 1)
-dygraph(weight_ts) %>% dyRangeSelector() %>% dyAxis("y", label = "Average weight", valueRange = c(86, 99))
+dygraph(weight_ts) %>% dyRangeSelector() %>% dyAxis("y", label = "Average weight in KG", valueRange = c(86, 99))
 
 
 ### Evolution of Field Goal % over the years ###
@@ -221,7 +221,7 @@ Player_Data %>% select(name, year_start, year_end, position) %>%
   geom_bar(aes(fill = ..count..)) + scale_x_continuous(breaks = seq(0, 20, 1)) +
   ggtitle("Number of players and how many seaons they play") + ylab("Number of players")
 
-### The most popular/common positions in NBA ### Need to reorder it !!!
+### The most popular/common positions in NBA ### Need to reorder it !!! ALSO call Season_stats, not Player_Data
 Player_Data %>% select(name, year_start, year_end, position) %>% filter(!is.na(position)) %>%
   mutate(seasons_played = year_end - year_start) %>% arrange(seasons_played) %>% 
   ggplot(aes(position)) + geom_bar(aes(fill = position)) +
@@ -246,20 +246,65 @@ corr_data <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(24,10,11,16:21,2
 corr_data %>% as.matrix() %>% rcorr()
 
 
+### Running the multiple regression model with stepwise selection ###
+trial_model_lm <- lm(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS, data = corr_data)
+summary(trial_model_lm)
+step(trial_model_lm)
+confint(trial_model_lm)
 
-trial_model <- lm(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS, data = corr_data)
-summary(trial_model)
-step(trial_model)
-confint(trial_model)
-
-
-
-trial_model_1 <- rpart(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS,
+### Running the regression tree model, without pruning ###
+trial_model_rt <- rpart(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS,
              method="anova", data=corr_data)
-summary(trial_model_1)
-plotcp(trial_model_1)
+summary(trial_model_rt)
+plotcp(trial_model_rt)
 
-plot(trial_model_1, uniform=TRUE, 
+plot(trial_model_rt, uniform=TRUE, 
      main="Regression Tree for Win Share ")
-text(trial_model_1, use.n=TRUE, all=TRUE, cex=.8)
+text(trial_model_rt, use.n=TRUE, all=TRUE, cex=.8)
 
+
+player_averages_train <- Seasons_Stats %>% group_by(Player) %>% filter(Year > 2013 & Year < 2017) %>% 
+  summarize(mean_PER = mean(PER, na.rm = TRUE),
+  mean_TS_perc = mean(`TS%`, na.rm = TRUE),
+  mean_TRB_perc = mean(`TRB%`, na.rm = TRUE),
+  mean_AST_perc = mean(`AST%`, na.rm = TRUE),
+  mean_STL_perc = mean(`STL%`, na.rm = TRUE),
+  mean_BLK_perc = mean(`BLK%`, na.rm = TRUE),
+  mean_TOV_perc = mean(`TOV%`, na.rm = TRUE),
+  mean_USG_perc = mean(`USG%`, na.rm = TRUE),
+  mean_BPM_perc = mean(BPM, na.rm = TRUE),
+  mean_VORP_perc = mean(VORP, na.rm = TRUE),
+  mean_3P_perc = mean(`3P%`, na.rm = TRUE),
+  mean_2P_perc = mean(`2P%`, na.rm = TRUE),
+  mean_FT_perc = mean(`FT%`, na.rm = TRUE),
+  mean_PF_perc = mean(PF, na.rm = TRUE),
+  mean_PTS_perc = mean(PTS, na.rm = TRUE),
+  mean_WS = mean(WS, na.rm = TRUE))
+
+player_averages_test <- Seasons_Stats %>% group_by(Player) %>% filter(Year == 2017) %>% 
+  filter(Year == 2017) %>% 
+  summarize(mean_PER = mean(PER, na.rm = TRUE),
+            mean_TS_perc = mean(`TS%`, na.rm = TRUE),
+            mean_TRB_perc = mean(`TRB%`, na.rm = TRUE),
+            mean_AST_perc = mean(`AST%`, na.rm = TRUE),
+            mean_STL_perc = mean(`STL%`, na.rm = TRUE),
+            mean_BLK_perc = mean(`BLK%`, na.rm = TRUE),
+            mean_TOV_perc = mean(`TOV%`, na.rm = TRUE),
+            mean_USG_perc = mean(`USG%`, na.rm = TRUE),
+            mean_BPM_perc = mean(BPM, na.rm = TRUE),
+            mean_VORP_perc = mean(VORP, na.rm = TRUE),
+            mean_3P_perc = mean(`3P%`, na.rm = TRUE),
+            mean_2P_perc = mean(`2P%`, na.rm = TRUE),
+            mean_FT_perc = mean(`FT%`, na.rm = TRUE),
+            mean_PF_perc = mean(PF, na.rm = TRUE),
+            mean_PTS_perc = mean(PTS, na.rm = TRUE),
+            mean_WS = mean(WS, na.rm = TRUE))
+
+train_set = lm(mean_WS~. -mean_WS -Player, data = player_averages_train)  
+summary(train_set)  
+
+predict_set = predict(train_set, data = player_averages_test$mean_WS)
+
+sqrt(mean(train_set$residuals^2))
+
+Seasons_Stats %>% filter(Year == 2017) %>% select(Seasons_Stats[,2] == player_averages_train[,1])
