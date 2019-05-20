@@ -222,11 +222,9 @@ Player_Data %>% select(name, year_start, year_end, position) %>%
   ggtitle("Number of players and how many seaons they play") + ylab("Number of players")
 
 ### The most popular/common positions in NBA ### Need to reorder it !!! ALSO call Season_stats, not Player_Data
-Player_Data %>% select(name, year_start, year_end, position) %>% filter(!is.na(position)) %>%
-  mutate(seasons_played = year_end - year_start) %>% arrange(seasons_played) %>% 
-  ggplot(aes(position)) + geom_bar(aes(fill = position)) +
+Seasons_Stats %>% select(Player, Age, Pos) %>% filter(!is.na(Pos)) %>%
+  ggplot(aes(Pos)) + geom_bar(aes(fill = Pos)) +
   ggtitle("Number of players per position") + ylab("Number of players")
-
 
 ## -------------------------------------------Model selection----------------------------------------------------- ##
 
@@ -261,6 +259,7 @@ plotcp(trial_model_rt)
 plot(trial_model_rt, uniform=TRUE, 
      main="Regression Tree for Win Share ")
 text(trial_model_rt, use.n=TRUE, all=TRUE, cex=.8)
+
 
 
 player_averages_train <- Seasons_Stats %>% group_by(Player) %>% filter(Year > 2013 & Year < 2017) %>% 
@@ -300,11 +299,23 @@ player_averages_test <- Seasons_Stats %>% group_by(Player) %>% filter(Year == 20
             mean_PTS_perc = mean(PTS, na.rm = TRUE),
             mean_WS = mean(WS, na.rm = TRUE))
 
-train_set = lm(mean_WS~. -mean_WS -Player, data = player_averages_train)  
+player_averages_train <- na.omit(player_averages_train)
+
+train_set = lm(mean_WS~., data = player_averages_train[,-1])
+train_set_new = lm(mean_WS~., -mean_AST_perc -mean_STL_perc -mean_2P_perc -mean_FT_perc, data = player_averages_train[,-1])  
+
 summary(train_set)  
+step(train_set)
+AIC(train_set)
 
-predict_set = predict(train_set, data = player_averages_test$mean_WS)
+predict_set = predict(train_set, newdata = player_averages_test[,-1])
+predict_set_new = predict(train_set_new, newdata = player_averages_test[,-1])
 
-sqrt(mean(train_set$residuals^2))
+sqrt(mean((predict_set - player_averages_test$mean_WS)^2, na.rm=TRUE))
+sqrt(mean((predict_set_new - player_averages_test$mean_WS)^2, na.rm=TRUE))
+
+data.frame(Player=player_averages_test$Player, Value=predict_set, true.val=player_averages_test$mean_WS)
+
+
 
 Seasons_Stats %>% filter(Year == 2017) %>% select(Seasons_Stats[,2] == player_averages_train[,1])
