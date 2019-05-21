@@ -11,6 +11,7 @@ library(PerformanceAnalytics)
 library(corrplot)
 #library(Hmisc)
 library(rpart)
+library(randomForest)
 
 column_types <- rep("guess", 51)
 column_types[c(8,12,14:21,26:29,33:35,43,44,47:49)] <- "numeric"
@@ -239,8 +240,10 @@ ggplot(player_winshare, aes(WS, Player)) +
 # 24,10,11,16:21,28,29,35,38,42,50,51 --> all the variables we might be interested in.
 
 corr_data <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(24,10,11,16:21,28,29,35,38,42,50,51))
-# corr_data <- Seasons_Stats[, c(24,10,11,16:21,28,29,35,38,42,50,51 )]
 
+corr_data_try <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(-1,-2,-3,-4,-5,-6))
+
+### !!! Need to figure a way to use something else, cuz its package creates a conflict with DPLYR !!! ###
 corr_data %>% as.matrix() %>% rcorr()
 
 
@@ -249,6 +252,13 @@ trial_model_lm <- lm(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ B
 summary(trial_model_lm)
 step(trial_model_lm)
 confint(trial_model_lm)
+
+### Trial model to see if we should use all variables or not ###
+corr_data_try <- na.omit(corr_data_try)
+trial_model_lm_try <- lm(WS ~., data = corr_data_try)
+summary(trial_model_lm_try)
+step(trial_model_lm_try)
+
 
 ### Running the regression tree model, without pruning ###
 trial_model_rt <- rpart(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS,
@@ -261,6 +271,108 @@ plot(trial_model_rt, uniform=TRUE,
 text(trial_model_rt, use.n=TRUE, all=TRUE, cex=.8)
 
 
+### Doing the random forest here ###
+colnames(corr_data) <- c("WS","PER","TS_pcent","TRB_pcent","AST_pcent","STL_pcent","BLK_pcent","TOV_pcent",
+                         "USG_pcent","BPM","VORP","threeP_pcent","twoP_pcent","FT_pcent","PF","PTS")
+
+corr_data <- na.omit(corr_data)
+trial_model_rf <-randomForest(WS~., data=corr_data, ntree=500)
+varImpPlot(trial_model_rf)
+
+trial_moodel_rf_pred <- predict(trial_mode_rf, newdata=Test.JapanSample2)
+confusionMatrix(RF.Prediction2, Test.JapanSample2$Return)
+par(mfrow=c(1,1))
+varImpPlot(trial_model_rf)
+
+## Doing the different degree of polynomial model ##
+poly_model_try <- lm(WS ~ poly(PER,4) + poly(TS_pcent,4) + poly(TRB_pcent,4) + poly(AST_pcent,4) + poly(STL_pcent,4) + poly(BLK_pcent,4) + 
+                       poly(TOV_pcent,4) + poly(USG_pcent,4) + poly(BPM,4) + poly(VORP,4) + poly(threeP_pcent,4) + 
+                       poly(twoP_pcent,4) + poly(FT_pcent,4) + poly(PF,4) + poly(PTS,4), data = corr_data)
+
+summary(poly_model_try)
+step(poly_model_try)
+
+poly_model_try_one <- lm(WS ~ I(PER^4) +I(TS_pcent^4) + I(TRB_pcent^4) + I(AST_pcent^4) + I(STL_pcent^4) + I(BLK_pcent^4) + 
+                       I(TOV_pcent^4) + I(USG_pcent^4) + I(BPM^4) + I(VORP^4) + I(threeP_pcent^4) + 
+                       I(twoP_pcent^4) + I(FT_pcent^4) + I(PF^4) + I(PTS^4), data = corr_data)
+
+summary(poly_model_try_one)
+step(poly_model_try_one)
+
+
+poly_model_try_two <- lm(WS ~ I(PER^2) +I(TS_pcent^2) + I(TRB_pcent^2) + I(AST_pcent^2) + I(STL_pcent^2) + I(BLK_pcent^2) + 
+                           I(TOV_pcent^2) + I(USG_pcent^2) + I(BPM^2) + I(VORP^2) + I(threeP_pcent^2) + 
+                           I(twoP_pcent^2) + I(FT_pcent^2) + I(PF^2) + I(PTS^2), data = corr_data)
+
+
+summary(poly_model_try_two)
+step(poly_model_try_two)
+
+## Perfomring the cross validation ##
+corr_data_random <- corr_data[sample(1:nrow(corr_data)),]
+# create an empty list that will be the test sets
+Test.List <- list() 
+# create an empty list that will be the train sets
+Train.List <- list() 
+# set counter to 0
+counter <- 0
+
+for (i in 1:9){
+  index <- counter + c(1:(floor(nrow(corr_data_random) /10)))
+  # the row numbers that will be in the test set
+  Test.List[[i]] <- corr_data_random[index, ] # the test set nbr i
+  Train.List[[i]] <- corr_data_random[-index, ] # the train set nbr i
+  counter <- counter + (floor(nrow(corr_data_random) /10))
+}
+
+Index.Test <- counter + c(1:(nrow(corr_data)-(floor(nrow(corr_data) /10)*9)))
+Test.List[[10]] <- corr_data_random[Index.Test,] # the test set nbr 10
+Train.List[[10]] <- corr_data_random[-Index.Test,] # the train set nbr 10
+
+CV.RF.Acc <- numeric(10)
+CV.LM.Acc <- numeric(10)
+CV.Poly.Acc <- numeric(10)
+
+for (i in 1:10){
+
+  #CV.RF.Model <- randomForest(WS~., data=Train.List[[i]]) # CV for the random forest
+  #CV.LM.Model <- lm(WS~., data=Train.List[[i]])
+  CV_poly_model_one <- lm(WS ~ I(PER^8) +I(TS_pcent^8) + I(TRB_pcent^8) + I(AST_pcent^8) + I(STL_pcent^8) + I(BLK_pcent^8) + 
+                             I(TOV_pcent^8) + I(USG_pcent^8) + I(BPM^8) + I(VORP^8) + I(threeP_pcent^8) + 
+                             I(twoP_pcent^8) + I(FT_pcent^8) + I(PF^8) + I(PTS^8), data = Train.List[[i]])
+  
+  #CV.RF.Prediction <- predict(CV.RF.Model, newdata=Test.List[[i]], type="class")
+  #CV.LM.Prediction <- predict(CV.LM.Model, newdata=Test.List[[i]])
+  CV_poly_model_one_pred <- predict(CV_poly_model_one, data = Test.List[[i]])
+  
+  
+  #CV.RF.Acc[i] <- sqrt(mean((CV.RF.Prediction - Test.List[[i]]$WS)^2, na.rm=TRUE)) 
+  #CV.LM.Acc[i] <- sqrt(mean((CV.LM.Prediction - Test.List[[i]]$WS)^2, na.rm=TRUE))
+  CV.Poly.Acc[i] <- sqrt(mean((CV_poly_model_one_pred - Test.List[[i]]$WS)^2, na.rm=TRUE))
+}
+
+mean_poly <- mean(CV.Poly.Acc)
+sd_poly <- sd(CV.Poly.Acc)
+mean_RandomForest <- mean(CV.RF.Acc)
+mean_MultipleReg <- mean(CV.LM.Acc)
+stdev_RandomForest <- sd(CV.RF.Acc)
+stdev_MultipleReg <- sd(CV.LM.Acc)
+
+
+model_results_dataframe <- data.frame("Model" = c("Random forest", "Random forest", "Multiple Regression", "Multiple Regression", 
+                                                  "Polynomial", "Polynomial"),
+                                      "Result_type" = c("Mean RMSE", "Standard Deviation", 
+                                                        "Mean RMSE", "Standard Deviation",
+                                                        "Mean RMSE", "Standard Deviation"),
+                                      "Results" = c(mean_RandomForest, stdev_RandomForest, mean_MultipleReg, stdev_MultipleReg,
+                                                    mean_poly, sd_poly))
+                            
+
+model_results_dataframe %>% ggplot(aes(factor(Result_type), Results, fill = Model)) + 
+  geom_bar(stat="identity", position = "dodge") + labs(x = "Result type", y = " ") + ggtitle("Model comparison") +
+  scale_fill_brewer(palette = "Set1")
+
+## ---------------------------------------------------- EXTRA ------------------------------------------------------------ ##
 
 player_averages_train <- Seasons_Stats %>% group_by(Player) %>% filter(Year > 2013 & Year < 2017) %>% 
   summarize(mean_PER = mean(PER, na.rm = TRUE),
