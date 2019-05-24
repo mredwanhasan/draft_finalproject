@@ -12,6 +12,7 @@ library(corrplot)
 #library(Hmisc)
 library(rpart)
 library(randomForest)
+library(forecast)
 
 column_types <- rep("guess", 51)
 column_types[c(8,12,14:21,26:29,33:35,43,44,47:49)] <- "numeric"
@@ -240,7 +241,7 @@ Seasons_Stats %>% select(Player, Age, Pos) %>% filter(!is.na(Pos)) %>%
 
 ## -------------------------------------------Model selection----------------------------------------------------- ##
 
-
+### Getting players with the highest winshares ###
 player_winshare <- Seasons_Stats %>% group_by(Player) %>% summarise(WS = sum(WS)) %>%
   mutate(Player = fct_reorder(Player, WS)) %>% arrange(desc(WS)) %>% slice(1:15)
 
@@ -364,4 +365,28 @@ corr_data_ts <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(2,3,24,10,11,
 
 corr_data_ts %>% group_by(Year, Player) %>% filter(Year > 2013) %>% summarize(avg.WS = mean(WS, na.rm = TRUE))
 
-trial_ts <- ts(corr_data_ts, start = 1980, frequency = 1)
+a_2014 = corr_data_ts %>% group_by(Player) %>% filter(Year == 2014) %>% summarise(WS = sum(WS)) %>%
+  mutate(Player = fct_reorder(Player, WS)) %>% arrange(desc(WS)) %>% slice(1:15)
+
+a_2015 = corr_data_ts %>% group_by(Player) %>% filter(Year == 2015) %>% summarise(WS = sum(WS)) %>%
+  mutate(Player = fct_reorder(Player, WS)) %>% arrange(desc(WS)) %>% slice(1:15)
+
+a_2016 = corr_data_ts %>% group_by(Player) %>% filter(Year == 2016) %>% summarise(WS = sum(WS)) %>%
+  mutate(Player = fct_reorder(Player, WS)) %>% arrange(desc(WS)) %>% slice(1:15)
+
+a_2017 = corr_data_ts %>% group_by(Player) %>% filter(Year == 2017) %>% summarise(WS = sum(WS)) %>%
+  mutate(Player = fct_reorder(Player, WS)) %>% arrange(desc(WS)) %>% slice(1:15)
+
+trial_player_data <- corr_data_ts %>% group_by(Year) %>% filter(Player %in% c("Stephen Curry")) %>%
+  filter(Year > 2010 & Year < 2018) %>% summarize(avg.WS = mean(WS, na.rm = TRUE))
+
+
+trial_ts <- ts(trial_player_data[,-1], start = 2011, frequency = 1)
+trial_ts
+
+fit <- ets(trial_ts)
+forecast(fit, 4)
+plot(forecast(fit, 2))
+
+fit1 <- HoltWinters(trial_ts, gamma = FALSE)
+plot(forecast(fit1, 4))
