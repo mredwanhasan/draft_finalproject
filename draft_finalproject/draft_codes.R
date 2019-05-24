@@ -56,7 +56,7 @@ players_per_birthstate = Players %>% count(birth_state) %>% arrange(desc(n)) %>%
 # A plot to visualize the previous line of code #
 players_per_birthstate %>% slice(2:11) %>% ggplot() + 
   geom_bar(mapping = aes(x = reorder(birth_state, -percent_players), y = percent_players, fill = birth_state), stat = "identity") + 
-  ggtitle("Total player representation by birth state") + xlab("State")
+  ggtitle("Total player representation by birth state") + xlab("State") + ylab("Percentage of players")
 
 # Here we calculate the mean height and weight per birth_state. You can also rearrange it to see #
 mean_height_weight_per_birthstate = Players %>% group_by(birth_state) %>% summarize(mean_height_per_state = mean(height, na.rm = TRUE),
@@ -69,13 +69,17 @@ seasonstats_1 = Seasons_Stats %>% select(Year, Player, Age, Tm)
 players_1 = Players %>% select(height, weight, Player)
 
 # Here we are displaying the height density of players in the NBA #
-players_1 %>% ggplot(aes(height, y= ..count..)) + 
-  geom_density(fill = "lightgreen", alpha = 0.50) + geom_vline(aes(xintercept = mean(height, na.rm = TRUE)), linetype = "dashed") +
-  ggtitle("Player height density distribution") + ylab("Player count")
+players_1 %>% ggplot(aes(height, y= ..density..)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(fill = "lightgreen", alpha = 0.50) + 
+  geom_vline(aes(xintercept = mean(height, na.rm = TRUE)), linetype = "dashed", color = "red", size = 1) +
+  ggtitle("Player height density distribution") + xlab("Height") + ylab("Player count") 
 
 # Here we are displaying the weight density of players in the NBA #
-players_1 %>% ggplot(aes(weight, y= ..count..)) + 
-  geom_density(fill = "lightblue", alpha = 0.50) + geom_vline(aes(xintercept = mean(weight, na.rm = TRUE)), linetype = "dashed") +
+players_1 %>% ggplot(aes(weight, y= ..density..)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="white") +
+  geom_density(fill = "lightblue", alpha = 0.50) + 
+  geom_vline(aes(xintercept = mean(weight, na.rm = TRUE)), linetype = "dashed", color = "red", size = 1) +
   ggtitle("Player weight density distribution") + ylab("Player count")
 
 # This is where we join different tables. 
@@ -87,16 +91,16 @@ players_per_college = Player_Data %>% count(college) %>% arrange(desc(n)) %>% mu
 
 ### Visualize Total Player representation by University ###
 players_per_college %>% slice(2:11) %>% ggplot() + 
-  geom_bar(mapping = aes(x = reorder(college, -percent_players), y = percent_players, fill = college), stat = "identity") + 
-  ggtitle("Total player representation by University") + xlab("College") 
+  geom_bar(mapping = aes(x = reorder(college, -percent_players), y = percent_players, fill = n), stat = "identity") + 
+  ggtitle("Total player representation by University") + xlab("College") + ylab("Percentage of players")
 
-### Evolution of height and weight over time ### --> This is okay but should combine with year from season stats and not birth year ###
+### Evolution of height and weight over time ### 
 
 Players_3 <- Players %>% select(Player, height, weight)
 seasonstats_2 <- Seasons_Stats %>% select(Year, Player)
 combined_3 <- full_join(Players_3, seasonstats_2, by = "Player")
 
-### Evolution of height and weight over time for birth year ###
+### Evolution of height and weight over time for birth year ### ---> Not sure if this is relevant or even needed anylonger
 
 Players %>% group_by(born) %>% summarize(mean_height_birthyear = mean(height, na.rm = TRUE),
                                          mean_weight_birthyear = mean(weight, na.rm = TRUE)) %>% 
@@ -105,34 +109,43 @@ ggplot() +
   geom_line(aes(born, mean_weight_birthyear, colour = "Weight in kgs", linetype = "dashed")) + 
   labs(x = "Birth year", y = "") + ggtitle("Height and Weight change over the years in NBA")
 
+
 ### Evolution of height and weight over time by NBA game years ###
 
 height_ts <- combined_3 %>% group_by(Year) %>% summarize(mean_height_playingyear = mean(height, na.rm = TRUE))
-height_ts <- ts(height_ts, start = 1950, frequency = 1)
-dygraph(height_ts) %>% dyRangeSelector() %>% dyAxis("y", label = "Average height in CM", valueRange = c(191, 201))
+height_ts <- ts(height_ts[,-1], start = 1950, frequency = 1)
+height_ts %>% dygraph(main = "Height change in NBA over 50 years") %>% dyRangeSelector() %>% 
+  dyAxis("y", label = "Average height in CM", valueRange = c(191, 201)) %>% dyOptions(stackedGraph = TRUE)  
 
 weight_ts <- combined_3 %>% group_by(Year) %>% summarize(mean_weight_playingyear = mean(weight, na.rm = TRUE))
-weight_ts <- ts(weight_ts, start = 1950, frequency = 1)
-dygraph(weight_ts) %>% dyRangeSelector() %>% dyAxis("y", label = "Average weight in KG", valueRange = c(86, 99))
+weight_ts <- ts(weight_ts[,-1], start = 1950, frequency = 1)
+weight_ts %>% dygraph(main = "Weight change in NBA over 50 years") %>% dyRangeSelector() %>% 
+  dyAxis("y", label = "Average weight in KG", valueRange = c(86, 102)) %>% dyOptions(stackedGraph = TRUE)  
 
 
-### Evolution of Field Goal % over the years ###
+### Evolution of Field Goal % over the years ### ---> What's the purpose of this? What does it tell us?
 Seasons_Stats %>% group_by(Year) %>% summarize(fieldgoal_mean_percentage = mean(`FG%`, na.rm = TRUE)) %>%
   ggplot(aes(Year, fieldgoal_mean_percentage)) + 
-  geom_line(color = "red", size = 1) + scale_x_continuous(breaks = seq(1950, 2018, 10)) + geom_point() +
-  ggtitle("Field goal % : For both 2 points and 3 points")
+  geom_line(color = "red", size = 1) + 
+  scale_x_continuous(breaks = seq(1950, 2018, 10)) + 
+  geom_point() +
+  ggtitle("Field goal probability : For both 2 points and 3 points") + xlab("Years") + ylab("Average field goal probability")
+
 
 ### Evolution of Average number of Assists over the years ###
 Seasons_Stats %>% group_by(Year) %>% summarize(mean_assists = mean(AST, na.rm = TRUE)) %>%
   ggplot(aes(Year, mean_assists)) + 
-  geom_line(color = "purple", size = 1) + scale_x_continuous(breaks = seq(1950, 2018, 10)) +
-  ggtitle("Average number of assists over the years")
+  geom_line(color = "purple", size = 1) + 
+  scale_x_continuous(breaks = seq(1950, 2018, 10)) + 
+  geom_point() +
+  ggtitle("Average number of assists over the years") + xlab("Years") + ylab("Average assists")
+
 
 ### Evolution of average number of personal fould over the years ###
 Seasons_Stats %>% group_by(Year) %>% summarize(mean_personal_fouls = mean(PF, na.rm = TRUE)) %>%
   ggplot(aes(Year, mean_personal_fouls)) + 
-  geom_line(color = "blue", size = 1) + scale_x_continuous(breaks = seq(1950, 2018, 10)) +
-  ggtitle("Average number of personal fouls over the years")
+  geom_line(color = "blue", size = 1) + scale_x_continuous(breaks = seq(1950, 2018, 10)) + geom_point() +
+  ggtitle("Average number of personal fouls over the years") + xlab("Years") + ylab("Average personal fouls")
 
 ### Attempt to get player height, weight by position ###
 Players_2 <- Players %>% select(Player, height, weight)
@@ -140,22 +153,20 @@ Seasonal_data_1 <- Seasons_Stats %>% select(Player, Pos)
 combined_2 <- Players_2 %>% left_join(Seasonal_data_1, by = "Player")
 
 combined_2 %>% group_by(Pos) %>% summarize(mean_height_per_position = mean(height, na.rm = TRUE),
-                                                    mean_weight_per_position = mean(weight, na.rm = TRUE)) %>%
+                                                    mean_weight_per_position = mean(weight, na.rm = TRUE)) %>% filter(!is.na(Pos)) %>%
   ggplot() + geom_bar(mapping = aes(x = reorder(Pos, -mean_height_per_position), 
                                     y = mean_height_per_position, fill = mean_weight_per_position), stat = "identity") +
   ggtitle("Player height per position") + ylab("Height") + xlab("Positions")
 
 ### Evolution of 2point shooting VS 3point shooting (starting from 1980) ###
-Seasons_Stats %>% group_by(Year) %>% summarize(mean_2point = mean(`2P`, na.rm = TRUE),
-                                               mean_3point = mean(`3P`, na.rm = TRUE)) %>%
-  filter(Year > 1979) %>%
-  ggplot() + 
-  geom_line(aes(Year, mean_2point, colour = "2 point score", linetype = "dashed")) +  
-  geom_line(aes(Year, mean_3point, colour = "3 point score", linetype = "dashed")) + 
-  scale_x_continuous(breaks = seq(1950, 2018, 10)) +
-  labs(x = "NBA year", y = "Points scored") + ggtitle("Change in 2 point and 3 point score change over the years")
+points_ts <- Seasons_Stats %>% group_by(Year) %>% filter(Year > 1979) %>% summarize(mean_2point = mean(`2P`, na.rm = TRUE),
+                                                                                    mean_3point = mean(`3P`, na.rm = TRUE))
+points_ts <- ts(points_ts[,-1], start = 1980, frequency = 1)
+points_ts %>% dygraph(main = "Point scoring change in NBA over 40 years") %>% dyRangeSelector() %>% 
+  dyAxis("y", label = "Average points scored", valueRange = c(0, 250)) %>% dyOptions(stackedGraph = TRUE)  
 
-### Weight distribution around the world ###
+
+### Weight distribution around the world ### ---> Need to get the map for the USA only
 Players %>% group_by(birth_state) %>% summarize(mean_weight_world = mean(weight, na.rm = TRUE)) %>% 
   ggplot(aes(map_id=birth_state)) +
   geom_map(mapping=aes(fill=mean_weight_world), map=map_data("world")) + 
@@ -165,7 +176,7 @@ Players %>% group_by(birth_state) %>% summarize(mean_weight_world = mean(weight,
   labs(x= "Longitude", y="Latitude", fill= "height") +
   scale_fill_gradient(low="cyan", high="darkred")
 
-### Weight distribution around the world ###
+### Weight distribution around the world ### ---> Need to get the map for the USA only
 Players %>% group_by(birth_state) %>% summarize(mean_height_world = mean(height, na.rm = TRUE)) %>% 
   ggplot(aes(map_id=birth_state)) +
   geom_map(mapping=aes(fill=mean_height_world), map=map_data("world")) + 
@@ -184,9 +195,9 @@ Team_Player <- Seasons_Stats %>%
             Number_of_Games = max(G),
             Players_per_Team = round(Number_of_Players/Number_of_Teams, 2)) 
 
-### Evolution of Number of NBA Teams per year in League
+### Evolution of Number of NBA Teams per year in League ---> Look into these codes and see if we can modify something
 Team_Player %>%
-  kable(escape = FALSE, align='c', caption = "Evolving of players, teams and games by the") %>%
+  kable(escape = FALSE, align='c', caption = "Evolving of players, teams and games by the years") %>%
   kable_styling("striped", full_width = T) %>%
   column_spec(1, bold = T) %>%
   scroll_box(width = "100%", height = "500px")
@@ -211,7 +222,7 @@ Players %>% group_by(born, Player) %>%
                                                          "Generation Z"))))) %>%
   ggplot(aes(born, y= ..count.., colour=Player_Generation, fill=Player_Generation)) +
   geom_density(alpha=0.30) +
-  ggtitle("Number of players per generations over the years") + ylab("Count") +
+  ggtitle("Number of players per generations over the years") + ylab("Player count") + xlab("Birth year") +
   scale_x_continuous(breaks = seq(1910, 2018, 20)) 
 
 ### Number of seasons played and how many players played in each of them ###
@@ -220,9 +231,9 @@ Player_Data %>% select(name, year_start, year_end, position) %>%
   mutate(seasons_played = year_end - year_start) %>% 
   ggplot(aes(seasons_played)) +
   geom_bar(aes(fill = ..count..)) + scale_x_continuous(breaks = seq(0, 20, 1)) +
-  ggtitle("Number of players and how many seaons they play") + ylab("Number of players")
+  ggtitle("Number of players and how many seaons they play") +xlab("Number of seasons played") + ylab("Number of players")
 
-### The most popular/common positions in NBA ### Need to reorder it !!! ALSO call Season_stats, not Player_Data
+### The most popular/common positions in NBA ### ---> Need to reorder it
 Seasons_Stats %>% select(Player, Age, Pos) %>% filter(!is.na(Pos)) %>%
   ggplot(aes(Pos)) + geom_bar(aes(fill = Pos)) +
   ggtitle("Number of players per position") + ylab("Number of players")
@@ -241,40 +252,23 @@ ggplot(player_winshare, aes(WS, Player)) +
 
 corr_data <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(24,10,11,16:21,28,29,35,38,42,50,51))
 
-corr_data_try <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(-1,-2,-3,-4,-5,-6))
+colnames(corr_data) <- c("WS","PER","TS_pcent","TRB_pcent","AST_pcent","STL_pcent","BLK_pcent","TOV_pcent",
+                         "USG_pcent","BPM","VORP","threeP_pcent","twoP_pcent","FT_pcent","PF","PTS")
+
 
 ### !!! Need to figure a way to use something else, cuz its package creates a conflict with DPLYR !!! ###
 corr_data %>% as.matrix() %>% rcorr()
 
 
 ### Running the multiple regression model with stepwise selection ###
-trial_model_lm <- lm(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS, data = corr_data)
+trial_model_lm <- lm(WS ~ ., data = corr_data)
 summary(trial_model_lm)
 step(trial_model_lm)
-confint(trial_model_lm)
 
-### Trial model to see if we should use all variables or not ###
-corr_data_try <- na.omit(corr_data_try)
-trial_model_lm_try <- lm(WS ~., data = corr_data_try)
-summary(trial_model_lm_try)
-step(trial_model_lm_try)
-
-
-### Running the regression tree model, without pruning ###
-trial_model_rt <- rpart(WS ~ PER+`TS%`+`TRB%`+`AST%`+`STL%`+`BLK%`+`TOV%`+`USG%`+ BPM + VORP +`3P%`+`2P%`+`FT%`+ PF + PTS,
-             method="anova", data=corr_data)
-summary(trial_model_rt)
-plotcp(trial_model_rt)
-
-plot(trial_model_rt, uniform=TRUE, 
-     main="Regression Tree for Win Share ")
-text(trial_model_rt, use.n=TRUE, all=TRUE, cex=.8)
-
+trial_model_lm_edited <- lm(WS ~. -TRB_pcent, data = corr_data)
+summary(trial_model_lm_edited)
 
 ### Doing the random forest here ###
-colnames(corr_data) <- c("WS","PER","TS_pcent","TRB_pcent","AST_pcent","STL_pcent","BLK_pcent","TOV_pcent",
-                         "USG_pcent","BPM","VORP","threeP_pcent","twoP_pcent","FT_pcent","PF","PTS")
-
 corr_data <- na.omit(corr_data)
 trial_model_rf <-randomForest(WS~., data=corr_data, ntree=500)
 varImpPlot(trial_model_rf)
@@ -285,13 +279,6 @@ par(mfrow=c(1,1))
 varImpPlot(trial_model_rf)
 
 ## Doing the different degree of polynomial model ##
-poly_model_try <- lm(WS ~ poly(PER,4) + poly(TS_pcent,4) + poly(TRB_pcent,4) + poly(AST_pcent,4) + poly(STL_pcent,4) + poly(BLK_pcent,4) + 
-                       poly(TOV_pcent,4) + poly(USG_pcent,4) + poly(BPM,4) + poly(VORP,4) + poly(threeP_pcent,4) + 
-                       poly(twoP_pcent,4) + poly(FT_pcent,4) + poly(PF,4) + poly(PTS,4), data = corr_data)
-
-summary(poly_model_try)
-step(poly_model_try)
-
 poly_model_try_one <- lm(WS ~ I(PER^4) +I(TS_pcent^4) + I(TRB_pcent^4) + I(AST_pcent^4) + I(STL_pcent^4) + I(BLK_pcent^4) + 
                        I(TOV_pcent^4) + I(USG_pcent^4) + I(BPM^4) + I(VORP^4) + I(threeP_pcent^4) + 
                        I(twoP_pcent^4) + I(FT_pcent^4) + I(PF^4) + I(PTS^4), data = corr_data)
@@ -335,19 +322,19 @@ CV.Poly.Acc <- numeric(10)
 
 for (i in 1:10){
 
-  #CV.RF.Model <- randomForest(WS~., data=Train.List[[i]]) # CV for the random forest
-  #CV.LM.Model <- lm(WS~., data=Train.List[[i]])
+  CV.RF.Model <- randomForest(WS~.-TRB_pcent, data=Train.List[[i]]) # CV for the random forest
+  CV.LM.Model <- lm(WS~., data=Train.List[[i]])
   CV_poly_model_one <- lm(WS ~ I(PER^8) +I(TS_pcent^8) + I(TRB_pcent^8) + I(AST_pcent^8) + I(STL_pcent^8) + I(BLK_pcent^8) + 
                              I(TOV_pcent^8) + I(USG_pcent^8) + I(BPM^8) + I(VORP^8) + I(threeP_pcent^8) + 
                              I(twoP_pcent^8) + I(FT_pcent^8) + I(PF^8) + I(PTS^8), data = Train.List[[i]])
   
-  #CV.RF.Prediction <- predict(CV.RF.Model, newdata=Test.List[[i]], type="class")
-  #CV.LM.Prediction <- predict(CV.LM.Model, newdata=Test.List[[i]])
+  CV.RF.Prediction <- predict(CV.RF.Model, newdata=Test.List[[i]], type="class")
+  CV.LM.Prediction <- predict(CV.LM.Model, newdata=Test.List[[i]])
   CV_poly_model_one_pred <- predict(CV_poly_model_one, data = Test.List[[i]])
   
   
-  #CV.RF.Acc[i] <- sqrt(mean((CV.RF.Prediction - Test.List[[i]]$WS)^2, na.rm=TRUE)) 
-  #CV.LM.Acc[i] <- sqrt(mean((CV.LM.Prediction - Test.List[[i]]$WS)^2, na.rm=TRUE))
+  CV.RF.Acc[i] <- sqrt(mean((CV.RF.Prediction - Test.List[[i]]$WS)^2, na.rm=TRUE)) 
+  CV.LM.Acc[i] <- sqrt(mean((CV.LM.Prediction - Test.List[[i]]$WS)^2, na.rm=TRUE))
   CV.Poly.Acc[i] <- sqrt(mean((CV_poly_model_one_pred - Test.List[[i]]$WS)^2, na.rm=TRUE))
 }
 
@@ -372,62 +359,9 @@ model_results_dataframe %>% ggplot(aes(factor(Result_type), Results, fill = Mode
   geom_bar(stat="identity", position = "dodge") + labs(x = "Result type", y = " ") + ggtitle("Model comparison") +
   scale_fill_brewer(palette = "Set1")
 
-## ---------------------------------------------------- EXTRA ------------------------------------------------------------ ##
 
-player_averages_train <- Seasons_Stats %>% group_by(Player) %>% filter(Year > 2013 & Year < 2017) %>% 
-  summarize(mean_PER = mean(PER, na.rm = TRUE),
-  mean_TS_perc = mean(`TS%`, na.rm = TRUE),
-  mean_TRB_perc = mean(`TRB%`, na.rm = TRUE),
-  mean_AST_perc = mean(`AST%`, na.rm = TRUE),
-  mean_STL_perc = mean(`STL%`, na.rm = TRUE),
-  mean_BLK_perc = mean(`BLK%`, na.rm = TRUE),
-  mean_TOV_perc = mean(`TOV%`, na.rm = TRUE),
-  mean_USG_perc = mean(`USG%`, na.rm = TRUE),
-  mean_BPM_perc = mean(BPM, na.rm = TRUE),
-  mean_VORP_perc = mean(VORP, na.rm = TRUE),
-  mean_3P_perc = mean(`3P%`, na.rm = TRUE),
-  mean_2P_perc = mean(`2P%`, na.rm = TRUE),
-  mean_FT_perc = mean(`FT%`, na.rm = TRUE),
-  mean_PF_perc = mean(PF, na.rm = TRUE),
-  mean_PTS_perc = mean(PTS, na.rm = TRUE),
-  mean_WS = mean(WS, na.rm = TRUE))
+corr_data_ts <- Seasons_Stats %>% filter(Year > 1979) %>% select(c(2,3,24,10,11,16:21,28,29,35,38,42,50,51))
 
-player_averages_test <- Seasons_Stats %>% group_by(Player) %>% filter(Year == 2017) %>% 
-  filter(Year == 2017) %>% 
-  summarize(mean_PER = mean(PER, na.rm = TRUE),
-            mean_TS_perc = mean(`TS%`, na.rm = TRUE),
-            mean_TRB_perc = mean(`TRB%`, na.rm = TRUE),
-            mean_AST_perc = mean(`AST%`, na.rm = TRUE),
-            mean_STL_perc = mean(`STL%`, na.rm = TRUE),
-            mean_BLK_perc = mean(`BLK%`, na.rm = TRUE),
-            mean_TOV_perc = mean(`TOV%`, na.rm = TRUE),
-            mean_USG_perc = mean(`USG%`, na.rm = TRUE),
-            mean_BPM_perc = mean(BPM, na.rm = TRUE),
-            mean_VORP_perc = mean(VORP, na.rm = TRUE),
-            mean_3P_perc = mean(`3P%`, na.rm = TRUE),
-            mean_2P_perc = mean(`2P%`, na.rm = TRUE),
-            mean_FT_perc = mean(`FT%`, na.rm = TRUE),
-            mean_PF_perc = mean(PF, na.rm = TRUE),
-            mean_PTS_perc = mean(PTS, na.rm = TRUE),
-            mean_WS = mean(WS, na.rm = TRUE))
+corr_data_ts %>% group_by(Year, Player) %>% filter(Year > 2013) %>% summarize(avg.WS = mean(WS, na.rm = TRUE))
 
-player_averages_train <- na.omit(player_averages_train)
-
-train_set = lm(mean_WS~., data = player_averages_train[,-1])
-train_set_new = lm(mean_WS~., -mean_AST_perc -mean_STL_perc -mean_2P_perc -mean_FT_perc, data = player_averages_train[,-1])  
-
-summary(train_set)  
-step(train_set)
-AIC(train_set)
-
-predict_set = predict(train_set, newdata = player_averages_test[,-1])
-predict_set_new = predict(train_set_new, newdata = player_averages_test[,-1])
-
-sqrt(mean((predict_set - player_averages_test$mean_WS)^2, na.rm=TRUE))
-sqrt(mean((predict_set_new - player_averages_test$mean_WS)^2, na.rm=TRUE))
-
-data.frame(Player=player_averages_test$Player, Value=predict_set, true.val=player_averages_test$mean_WS)
-
-
-
-Seasons_Stats %>% filter(Year == 2017) %>% select(Seasons_Stats[,2] == player_averages_train[,1])
+trial_ts <- ts(corr_data_ts, start = 1980, frequency = 1)
