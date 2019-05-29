@@ -53,7 +53,7 @@ players_per_birthstate %>% slice(2:11) %>% ggplot() +
   geom_bar(mapping = aes(x = reorder(birth_state, -percent_players), y = percent_players, fill = birth_state), stat = "identity") + 
   ggtitle("Total player representation by birth state") + xlab("State") + ylab("Percentage of players") + theme(legend.position = "none") +
   theme(
-    panel.background = element_rect(fill = "#000000", colour = "#6D9EC1",
+    panel.background = element_rect(fill = "#000000", colour = "#000000",
                                     size = 1, linetype = "solid"),
     panel.grid.major = element_line(size = 0.5, linetype = 'solid',
                                     colour = "white"), 
@@ -83,7 +83,9 @@ players_1 %>% ggplot(aes(weight, y= ..density..)) +
   geom_histogram(aes(y=..density..), colour="black", fill="white") +
   geom_density(fill = "lightblue", alpha = 0.50) + 
   geom_vline(aes(xintercept = mean(weight, na.rm = TRUE)), linetype = "dashed", color = "red", size = 1) +
-  ggtitle("Player weight density distribution") + ylab("Player count")
+  ggtitle("Player weight density distribution") + ylab("Player count") + 
+  theme(panel.background = element_rect(fill = "#FFCC99", colour = "#FFCC99",
+                                    size = 1, linetype = "solid"))
 
 # This is where we join different tables. 
 playerdata_1 %>% left_join(Players, by = c("name" = "Player")) %>% left_join(seasonstats_1, by = c("name" = "Player"))
@@ -95,7 +97,7 @@ players_per_college = Player_Data %>% count(college) %>% arrange(desc(n)) %>% mu
 ### Visualize Total Player representation by University ###
 players_per_college %>% slice(2:11) %>% ggplot() + 
   geom_bar(mapping = aes(x = reorder(college, -percent_players), y = percent_players, fill = n), stat = "identity") + 
-  ggtitle("Total player representation by University") + xlab("College") + ylab("Percentage of players")
+  ggtitle("Total player representation by University") + xlab("College") + ylab("Percentage of players") 
 
 ### Evolution of height and weight over time ### 
 
