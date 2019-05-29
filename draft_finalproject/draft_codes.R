@@ -22,12 +22,6 @@ League_Averages <- read_excel(path = here("data/League_Averages.xlsx"), sheet = 
 Player_Data <- read_excel(path = here("data/Player_Data.xlsx"), sheet = 1)
 Players <- read_excel(path = here("data/Players.xlsx"), sheet = 1)
 
-as_tibble(Champions_Info)
-as_tibble(League_Averages)
-as_tibble(Player_Data)
-as_tibble(Players)
-as_tibble(Seasons_Stats)
-
 Seasons_Stats$Pos[Seasons_Stats$Pos == "C-F"] <- "C"
 Seasons_Stats$Pos[Seasons_Stats$Pos == "C-PF"] <- "C"
 Seasons_Stats$Pos[Seasons_Stats$Pos == "C-SF"] <- "C"
@@ -57,12 +51,20 @@ players_per_birthstate = Players %>% count(birth_state) %>% arrange(desc(n)) %>%
 # A plot to visualize the previous line of code #
 players_per_birthstate %>% slice(2:11) %>% ggplot() + 
   geom_bar(mapping = aes(x = reorder(birth_state, -percent_players), y = percent_players, fill = birth_state), stat = "identity") + 
-  ggtitle("Total player representation by birth state") + xlab("State") + ylab("Percentage of players")
+  ggtitle("Total player representation by birth state") + xlab("State") + ylab("Percentage of players") + theme(legend.position = "none") +
+  theme(
+    panel.background = element_rect(fill = "#000000", colour = "#6D9EC1",
+                                    size = 1, linetype = "solid"),
+    panel.grid.major = element_line(size = 0.5, linetype = 'solid',
+                                    colour = "white"), 
+    panel.grid.minor = element_line(size = 0.25, linetype = 'solid',
+                                    colour = "white"))
 
-# Here we calculate the mean height and weight per birth_state. You can also rearrange it to see #
+
+# Here we calculate the mean height and weight per birth_state. You can also rearrange it to see # We need to remove the NA!!!
 mean_height_weight_per_birthstate = Players %>% group_by(birth_state) %>% summarize(mean_height_per_state = mean(height, na.rm = TRUE),
-                                                mean_weight_per_state = mean(weight, na.rm = TRUE)) 
-
+                                                mean_weight_per_state = mean(weight, na.rm = TRUE)) + filter(!is.na(birth_state))
+mean_height_weight_per_birthstate
 
 # Made variables by selecting certain columns #
 playerdata_1 = Player_Data %>% select(year_start, year_end, position, name)
@@ -74,7 +76,7 @@ players_1 %>% ggplot(aes(height, y= ..density..)) +
   geom_histogram(aes(y=..density..), colour="black", fill="white") +
   geom_density(fill = "lightgreen", alpha = 0.50) + 
   geom_vline(aes(xintercept = mean(height, na.rm = TRUE)), linetype = "dashed", color = "red", size = 1) +
-  ggtitle("Player height density distribution") + xlab("Height") + ylab("Player count") 
+  ggtitle("Player height density distribution") + xlab("Height") + ylab("Player count")
 
 # Here we are displaying the weight density of players in the NBA #
 players_1 %>% ggplot(aes(weight, y= ..density..)) + 
@@ -106,8 +108,8 @@ combined_3 <- full_join(Players_3, seasonstats_2, by = "Player")
 Players %>% group_by(born) %>% summarize(mean_height_birthyear = mean(height, na.rm = TRUE),
                                          mean_weight_birthyear = mean(weight, na.rm = TRUE)) %>% 
 ggplot() + 
-  geom_line(aes(born, mean_height_birthyear, colour = "Height in cm", linetype = "dashed")) +  
-  geom_line(aes(born, mean_weight_birthyear, colour = "Weight in kgs", linetype = "dashed")) + 
+  geom_line(aes(born, mean_height_birthyear, colour = "Height in cm")) +  
+  geom_line(aes(born, mean_weight_birthyear, colour = "Weight in kgs")) + 
   labs(x = "Birth year", y = "") + ggtitle("Height and Weight change over the years in NBA")
 
 
@@ -237,7 +239,7 @@ Player_Data %>% select(name, year_start, year_end, position) %>%
 ### The most popular/common positions in NBA ### ---> Need to reorder it
 Seasons_Stats %>% select(Player, Age, Pos) %>% filter(!is.na(Pos)) %>%
   ggplot(aes(Pos)) + geom_bar(aes(fill = Pos)) +
-  ggtitle("Number of players per position") + ylab("Number of players")
+  ggtitle("Number of players per position") + ylab("Number of players") + theme(legend.position = "none")
 
 ## -------------------------------------------Model selection----------------------------------------------------- ##
 
@@ -272,11 +274,6 @@ summary(trial_model_lm_edited)
 ### Doing the random forest here ###
 corr_data <- na.omit(corr_data)
 trial_model_rf <-randomForest(WS~., data=corr_data, ntree=500)
-varImpPlot(trial_model_rf)
-
-trial_moodel_rf_pred <- predict(trial_mode_rf, newdata=Test.JapanSample2)
-confusionMatrix(RF.Prediction2, Test.JapanSample2$Return)
-par(mfrow=c(1,1))
 varImpPlot(trial_model_rf)
 
 ## Doing the different degree of polynomial model ##
@@ -384,9 +381,10 @@ trial_player_data <- corr_data_ts %>% group_by(Year) %>% filter(Player %in% c("S
 trial_ts <- ts(trial_player_data[,-1], start = 2011, frequency = 1)
 trial_ts
 
-fit <- ets(trial_ts)
+fit <- auto.arima(trial_ts)
 forecast(fit, 4)
 plot(forecast(fit, 2))
 
 fit1 <- HoltWinters(trial_ts, gamma = FALSE)
+forecast(fit1, 4)
 plot(forecast(fit1, 4))
